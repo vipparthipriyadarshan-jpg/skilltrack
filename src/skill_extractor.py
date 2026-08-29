@@ -3,9 +3,9 @@ from typing import List, Optional, Set
 import spacy
 from spacy.tokens import Doc
 
-# Comprehensive catalog of 60+ real technical and vocational skills across IT, Automotive, and Textile
+# Expanded, curated catalog of 70+ technical and vocational skills across IT, Automotive, and Textile
 SKILL_KEYWORDS = [
-    # --- Information Technology ---
+    # --- Information Technology / Software / Data / Cloud ---
     "Python",
     "React",
     "PostgreSQL",
@@ -16,32 +16,44 @@ SKILL_KEYWORDS = [
     "Git",
     "CI/CD",
     "SQL",
+    "SQL Query Tuning",
     "Power BI",
     "Pandas",
     "Excel",
+    "Data Modeling",
+    "Statistical Analysis",
     "Tableau",
     "AWS Cloud",
+    "Cloud Computing",
     "Terraform",
     "Linux",
+    "Linux System Administration",
     "Jenkins",
     "PyTorch",
     "LangChain",
     "Natural Language Processing",
     "Scikit-Learn",
     "Vector Databases",
+    "Machine Learning",
     "HTML5",
     "CSS3",
     "JavaScript",
     "Tailwind CSS",
     "Redux",
+    "Frontend Development",
     "Database Optimization",
+    "Backup Recovery",
     "Network Security",
     "Threat Hunting",
     "SIEM",
     "Penetration Testing",
     "Vulnerability Assessment",
+    "Cybersecurity",
+    "Networking",
+    "Technical Troubleshooting",
     "Bash Scripting",
-    # --- Automotive ---
+    "DevOps",
+    # --- Automotive & Mechanical Engineering ---
     "Electric Vehicle Battery Management",
     "Battery Chemistry",
     "MATLAB Simulink",
@@ -60,6 +72,7 @@ SKILL_KEYWORDS = [
     "SolidWorks",
     "CATIA 3D Modeling",
     "Sheet Metal Design",
+    "Prototyping",
     "Engine Overhaul",
     "Brake System Repair",
     "Wheel Alignment",
@@ -69,8 +82,9 @@ SKILL_KEYWORDS = [
     "Radar Diagnostics",
     "LiDAR",
     "Automotive Telematics",
-    # --- Textile ---
+    # --- Textile & Apparel Manufacturing ---
     "Loom Operation",
+    "Airjet Loom Maintenance",
     "Yarn Quality Control",
     "Spinning",
     "Weaving",
@@ -111,7 +125,6 @@ def get_nlp():
         try:
             _NLP = spacy.load("en_core_web_sm")
         except OSError:
-            # Fallback if model not installed yet
             spacy.cli.download("en_core_web_sm")
             _NLP = spacy.load("en_core_web_sm")
     return _NLP
@@ -119,19 +132,19 @@ def get_nlp():
 
 def normalize_string(s: str) -> str:
     """
-    Normalize text for robust matching by lowercasing and removing punctuation.
+    Normalize text for robust matching by lowercasing and standardizing whitespace.
     """
-    return re.sub(r"[^\w\s\+]", "", s).strip().lower()
+    return re.sub(r"[^\w\s\+]", " ", s).strip().lower()
 
 
 def extract_skills(text: Optional[str]) -> List[str]:
     """
-    Extract technical and vocational skills from input text using spaCy.
+    Extract technical and vocational skills from input text using spaCy and keyword matching.
 
     Steps:
     1. Validate input; returns empty list if None, non-string, or very short.
     2. Extract noun chunks and named entities as candidate phrases.
-    3. Match candidate phrases and direct occurrences against canonical SKILL_KEYWORDS.
+    3. Match candidate phrases and normalized text against canonical SKILL_KEYWORDS.
     4. Return a clean, deduplicated list of matched skills.
     """
     if not text or not isinstance(text, str):
@@ -148,50 +161,54 @@ def extract_skills(text: Optional[str]) -> List[str]:
     candidates: Set[str] = set()
 
     for chunk in doc.noun_chunks:
-        candidates.add(chunk.text.strip())
+        cand = chunk.text.strip()
+        if cand:
+            candidates.add(cand)
 
     for ent in doc.ents:
-        candidates.add(ent.text.strip())
+        cand = ent.text.strip()
+        if cand:
+            candidates.add(cand)
 
     for token in doc:
         if not token.is_stop and not token.is_punct and len(token.text) > 1:
             candidates.add(token.text.strip())
 
-    # Build normalized candidates dictionary
-    norm_candidates = {normalize_string(cand): cand for cand in candidates if cand}
-    norm_full_text = normalize_string(cleaned_text)
+    # Build normalized representations
+    norm_candidates = [re.sub(r"\s+", " ", normalize_string(c)) for c in candidates if c]
+    norm_full_text = re.sub(r"\s+", " ", normalize_string(cleaned_text))
 
     matched_skills: List[str] = []
 
-    # 2. Filter against canonical SKILL_KEYWORDS
-    for skill in SKILL_KEYWORDS:
-        norm_skill = normalize_string(skill)
+    # Sort keywords by length descending so longer compound phrases take priority
+    sorted_keywords = sorted(SKILL_KEYWORDS, key=lambda k: len(k), reverse=True)
+
+    for skill in sorted_keywords:
+        norm_skill = re.sub(r"\s+", " ", normalize_string(skill))
         if not norm_skill:
             continue
 
-        # Check candidate match
         is_matched = False
-        if norm_skill in norm_candidates:
-            is_matched = True
-        else:
-            # Check if normalized skill appears as a candidate substring or in candidate phrases
-            for nc in norm_candidates:
-                # Word boundary match inside candidate or exact match
-                pattern = r"\b" + re.escape(norm_skill) + r"\b"
-                if re.search(pattern, nc):
-                    is_matched = True
-                    break
 
-            # Fallback: check whole text boundary match if spaCy chunking split it
-            if not is_matched:
-                pattern = r"\b" + re.escape(norm_skill) + r"\b"
-                if re.search(pattern, norm_full_text):
-                    is_matched = True
+        # Pattern with word boundaries for the normalized skill
+        pattern = r"(?<!\w)" + re.escape(norm_skill) + r"(?!\w)"
+
+        # Check in noun chunks / candidate phrases
+        for nc in norm_candidates:
+            if re.search(pattern, nc):
+                is_matched = True
+                break
+
+        # Check in full text as fallback
+        if not is_matched and re.search(pattern, norm_full_text):
+            is_matched = True
 
         if is_matched and skill not in matched_skills:
             matched_skills.append(skill)
 
-    return matched_skills
+    # Maintain original catalog order for consistency
+    ordered_matched = [s for s in SKILL_KEYWORDS if s in matched_skills]
+    return ordered_matched
 
 
 def main():
@@ -200,12 +217,14 @@ def main():
         " ",
         "a",
         "Looking for a Full Stack Developer proficient in Python, React, PostgreSQL, Docker, and REST API development. Experience with Git and CI/CD pipelines is required.",
-        "Urgent requirement for EV Battery Systems Engineer experienced in Electric Vehicle Battery Management, Battery Chemistry, MATLAB Simulink, and CAN Bus Diagnostics.",
-        "Hiring Specialist for Digital Textile Printing, Sublimation Printing, Color Fastness Testing, Fabric Inspection, and RIP Software.",
-        None,
+        "Seeking Data Analyst skilled in Python, SQL, Power BI, Pandas, and Excel data modeling. Strong statistical analysis and Tableau experience preferred.",
+        "Seeking DBA with deep knowledge of PostgreSQL, MySQL, Database Optimization, Backup Recovery, and SQL Query Tuning.",
+        "Cloud Support Specialist needed with AWS Cloud, Linux, Bash Scripting, Networking, and Technical Troubleshooting skills.",
+        "Mechanical Design Engineer needed with expertise in AutoCAD, SolidWorks, CATIA 3D Modeling, Sheet Metal Design, and Prototyping.",
+        "Maintenance Technician required for Airjet Loom Maintenance, Mechanical Repair, Preventive Maintenance, and Electrical Troubleshooting.",
     ]
 
-    print("=== Testing Skill Extractor ===")
+    print("=== Testing Updated Skill Extractor ===")
     for idx, case in enumerate(test_cases, 1):
         extracted = extract_skills(case)
         print(f"\nTest {idx}: {case!r}")
