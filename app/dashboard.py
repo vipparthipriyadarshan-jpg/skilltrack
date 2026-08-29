@@ -223,6 +223,58 @@ section[data-testid="stSidebar"] .stMarkdown h3 {
 .friendly-error .icon { font-size: 3rem; margin-bottom: 0.8rem; }
 .friendly-error h2 { color: var(--red); font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem; }
 .friendly-error p  { color: var(--text-secondary); font-size: 0.92rem; line-height: 1.6; }
+
+/* ── Course Health Cards ─────────────────────────────────────────────────── */
+.course-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-md);
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.7rem;
+    transition: var(--spring);
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+.course-card:hover { background: var(--bg-card-hover); transform: translateY(-1px); box-shadow: 0 6px 16px -6px rgba(0,0,0,0.2); }
+.course-card .badge-icon { font-size: 1.6rem; flex-shrink: 0; margin-top: 2px; }
+.course-card .course-info { flex: 1; }
+.course-card .course-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+.course-card .course-sector { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.course-card .course-skills { font-size: 0.82rem; color: var(--text-secondary); margin-top: 0.35rem; line-height: 1.5; }
+.course-card .health-badge { flex-shrink: 0; margin-top: 2px; }
+
+/* ── Trainer Alert Panel ─────────────────────────────────────────────────── */
+.trainer-panel {
+    background: linear-gradient(135deg, rgba(239,68,68,0.06) 0%, rgba(245,158,11,0.06) 100%);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: var(--r-lg);
+    padding: 1.4rem 1.6rem;
+    margin: 1.2rem 0 1.8rem;
+}
+.trainer-panel .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+}
+.trainer-panel .panel-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+.trainer-panel .panel-count { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: var(--r-pill); background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+.trainer-chip-grid { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.trainer-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.3rem 0.75rem;
+    border-radius: var(--r-pill);
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: var(--spring);
+    cursor: default;
+}
+.trainer-chip:hover { transform: translateY(-1px); }
+.trainer-chip-high { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+.trainer-chip-med  { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
 </style>
 """
 
@@ -460,11 +512,43 @@ st.markdown(
 
 
 # ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  TRAINER UPSKILLING PANEL — always visible on main dashboard             ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+if not filtered_trainer.empty:
+    high_chips = filtered_trainer[filtered_trainer["demand_count"] >= 2].sort_values("demand_count", ascending=False)
+    emerging_chips = filtered_trainer[filtered_trainer["demand_count"] < 2].sort_values("skill")
+
+    chips_html = ""
+    for _, r in high_chips.iterrows():
+        chips_html += f'<span class="trainer-chip trainer-chip-high">🔴 {r["skill"]} ({r["demand_count"]})</span>'
+    for _, r in emerging_chips.iterrows():
+        chips_html += f'<span class="trainer-chip trainer-chip-med">🟡 {r["skill"]}</span>'
+
+    st.markdown(
+        f"""
+        <div class="trainer-panel">
+            <div class="panel-header">
+                <span style="font-size:1.3rem">👨‍🏫</span>
+                <span class="panel-title">Trainer Upskilling Needed</span>
+                <span class="panel-count">{len(filtered_trainer)} skills flagged</span>
+            </div>
+            <div class="trainer-chip-grid">
+                {chips_html}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  MAIN TABS                                                               ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
-tab_gap, tab_trainer, tab_explore, tab_playground = st.tabs([
+tab_gap, tab_courses, tab_trainer, tab_explore, tab_playground = st.tabs([
     "🔍  Skill Gap Matrix",
+    "🏫  Course Health Audit",
     "👨‍🏫  Trainer Development Planner",
     "📊  Sector & District View",
     "🧪  Live AI Playground",
@@ -487,6 +571,22 @@ with tab_gap:
         """,
         unsafe_allow_html=True,
     )
+
+    # ── Top 10 In-Demand Skills Bar Chart ────────────────────────────────────
+    st.markdown("#### Top 10 In-Demand Skills")
+    top10 = (
+        filtered_demand
+        .sort_values("demand_count", ascending=False)
+        .head(10)
+        .copy()
+    )
+    if not top10.empty:
+        chart_df = top10[["skill", "demand_count"]].set_index("skill")
+        st.bar_chart(chart_df, color="#6366F1", height=320)
+    else:
+        st.info("No demand data available for the current filter selection.")
+
+    st.markdown("")  # spacer
 
     st.caption(f"Displaying {len(display_gap)} of {len(filtered_gap)} skills after filters.")
 
@@ -534,7 +634,173 @@ with tab_gap:
     )
 
 
-# ── TAB 2: Trainer Development ──────────────────────────────────────────────
+# ── TAB 2: Course Health Audit ──────────────────────────────────────────────
+with tab_courses:
+    st.markdown(
+        """
+        <div class="sec-head">
+            <div class="sec-title">Course Health Audit</div>
+            <div class="sec-desc">
+                Each vocational course is rated by how many of its taught skills
+                are still demanded by industry —
+                <span class="pill pill-covered">🟢 Aligned</span>
+                <span class="pill pill-partial">🟡 Needs Update</span>
+                <span class="pill pill-missing">🔴 Obsolete</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Build a set of in-demand skills (lowercase) for matching
+    demanded_skills_lower = set(filtered_demand["skill"].str.lower().tolist())
+
+    course_records = []
+    for _, c_row in curr_df.iterrows():
+        c_id = c_row["course_id"]
+        c_name = c_row["course_name"]
+        c_sector = str(c_row.get("sector", ""))
+        skills_raw = str(c_row.get("skills_taught", ""))
+        taught_list = [s.strip() for s in skills_raw.split(",") if s.strip()]
+        total_taught = len(taught_list)
+
+        if total_taught == 0:
+            course_records.append({
+                "course_id": c_id,
+                "course_name": c_name,
+                "sector": c_sector,
+                "skills_taught": skills_raw,
+                "total_skills": 0,
+                "covered_skills": 0,
+                "coverage_pct": 0.0,
+                "health": "🔴 Obsolete",
+                "covered_list": "",
+                "gap_list": skills_raw,
+            })
+            continue
+
+        covered = [s for s in taught_list if s.strip().lower() in demanded_skills_lower]
+        gaps = [s for s in taught_list if s.strip().lower() not in demanded_skills_lower]
+        coverage_pct = round(len(covered) / total_taught * 100, 1)
+
+        if coverage_pct >= 70:
+            health = "🟢 Aligned"
+        elif coverage_pct >= 40:
+            health = "🟡 Needs Update"
+        else:
+            health = "🔴 Obsolete"
+
+        course_records.append({
+            "course_id": c_id,
+            "course_name": c_name,
+            "sector": c_sector,
+            "skills_taught": skills_raw,
+            "total_skills": total_taught,
+            "covered_skills": len(covered),
+            "coverage_pct": coverage_pct,
+            "health": health,
+            "covered_list": ", ".join(covered),
+            "gap_list": ", ".join(gaps),
+        })
+
+    course_health_df = pd.DataFrame(course_records)
+
+    # Summary metrics
+    ch_col1, ch_col2, ch_col3, ch_col4 = st.columns(4)
+    aligned_count = len(course_health_df[course_health_df["health"].str.contains("Aligned")])
+    needs_count = len(course_health_df[course_health_df["health"].str.contains("Needs Update")])
+    obsolete_count = len(course_health_df[course_health_df["health"].str.contains("Obsolete")])
+    avg_coverage = round(course_health_df["coverage_pct"].mean(), 1)
+
+    ch_col1.metric("Total Courses", len(course_health_df))
+    ch_col2.metric("🟢 Aligned", aligned_count)
+    ch_col3.metric("🟡 Needs Update", needs_count)
+    ch_col4.metric("🔴 Obsolete", obsolete_count)
+
+    st.markdown("")
+
+    # Course health table
+    def highlight_health(row):
+        h = row["health"]
+        if "Aligned" in h:
+            return ["background-color: rgba(16,185,129,0.08); color: #34D399"] * len(row)
+        elif "Needs Update" in h:
+            return ["background-color: rgba(245,158,11,0.08); color: #FBBF24"] * len(row)
+        else:
+            return ["background-color: rgba(239,68,68,0.08); color: #F87171"] * len(row)
+
+    display_health = course_health_df[["course_id", "course_name", "sector", "total_skills", "covered_skills", "coverage_pct", "health", "gap_list"]].copy()
+    display_health = display_health.rename(columns={
+        "course_id": "Course ID",
+        "course_name": "Course Name",
+        "sector": "Sector",
+        "total_skills": "Total Skills",
+        "covered_skills": "Demanded Skills",
+        "coverage_pct": "Coverage %",
+        "health": "Health Rating",
+        "gap_list": "Skills Not In Demand",
+    })
+
+    styled_health = (
+        display_health
+        .style
+        .apply(lambda row: highlight_health(pd.Series({"health": row["Health Rating"]})), axis=1)
+        .format({"Coverage %": "{:.1f}%"})
+    )
+
+    st.dataframe(
+        styled_health,
+        use_container_width=True,
+        hide_index=True,
+        height=480,
+    )
+
+    # Detailed course cards
+    st.markdown("#### Detailed Course Breakdown")
+    for _, cr in course_health_df.iterrows():
+        if "Aligned" in cr["health"]:
+            icon = "🟢"
+            pill_class = "pill-covered"
+        elif "Needs Update" in cr["health"]:
+            icon = "🟡"
+            pill_class = "pill-partial"
+        else:
+            icon = "🔴"
+            pill_class = "pill-missing"
+
+        gap_text = f'<br/><span style="color:var(--red); font-size:0.78rem;">⚠ Not in demand: {cr["gap_list"]}</span>' if cr["gap_list"] else ""
+
+        st.markdown(
+            f"""
+            <div class="course-card">
+                <div class="badge-icon">{icon}</div>
+                <div class="course-info">
+                    <div class="course-name">{cr['course_name']}</div>
+                    <div class="course-sector">{cr['sector']} · {cr['course_id']}</div>
+                    <div class="course-skills">
+                        <strong>{cr['covered_skills']}/{cr['total_skills']}</strong> skills aligned with industry demand
+                        ({cr['coverage_pct']}%)
+                        {gap_text}
+                    </div>
+                </div>
+                <div class="health-badge">
+                    <span class="pill {pill_class}">{cr['health']}</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    course_csv = course_health_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "📥  Download Course Health Report CSV",
+        data=course_csv,
+        file_name="course_health_audit_ps26134.csv",
+        mime="text/csv",
+    )
+
+
+# ── TAB 3: Trainer Development ──────────────────────────────────────────────
 with tab_trainer:
     st.markdown(
         """
