@@ -669,3 +669,62 @@ with tab5:
                               <div class="rsn">{r['reason']}</div>
                             </div>
                             """, unsafe_allow_html=True)
+
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  MODEL FEEDBACK & CONTINUOUS CALIBRATION SECTION                         ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+st.markdown("<hr style='margin: 3rem 0 1.8rem; border-color: var(--glass-border);'>", unsafe_allow_html=True)
+
+# Read feedback_log.json for live validation counter
+employer_validations = []
+if FEEDBACK_FILE.exists():
+    try:
+        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            data_loaded = json.load(f)
+            if isinstance(data_loaded, list):
+                employer_validations = data_loaded
+    except Exception:
+        employer_validations = []
+
+total_validated = len(employer_validations)
+agreed_count = sum(1 for v in employer_validations if v.get("user_response") == "Agree")
+disagreed_count = sum(1 for v in employer_validations if v.get("user_response") == "Disagree")
+agreement_pct = round((agreed_count / total_validated * 100), 1) if total_validated > 0 else 0.0
+
+st.markdown(
+    f"""
+    <div class="tp" style="border-color: rgba(99, 102, 241, 0.35); background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.05) 100%);">
+        <div class="tp-head" style="justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span style="font-size: 1.4rem;">🔄</span>
+                <span class="tp-title" style="font-size: 1.15rem;">Model Feedback & Continuous Calibration</span>
+            </div>
+            <span class="tp-badge" style="background: var(--green-bg); color: var(--green); border-color: var(--green-border); font-size: 0.75rem; padding: 0.2rem 0.75rem;">
+                Active Evidence-Based Loop
+            </span>
+        </div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-1); margin: 0.4rem 0 0.2rem; letter-spacing: -0.02em;">
+            ✨ {total_validated} gaps validated by employers so far.
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-2); margin: 0 0 1rem; line-height: 1.6;">
+            Continuous evidence-based calibration mechanism: employer votes directly tune NLP match confidence thresholds and validate regional curriculum interventions.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+fb_col1, fb_col2, fb_col3 = st.columns(3)
+with fb_col1:
+    st.metric("Total Validations Recorded", f"{total_validated}", help="Total feedback clicks from industry/employers")
+with fb_col2:
+    st.metric("Employer Confirmations (Agree)", f"{agreed_count}", delta=f"{agreement_pct}% consensus" if total_validated else None)
+with fb_col3:
+    st.metric("Flagged for Calibration (Disagree)", f"{disagreed_count}", delta=f"-{disagreed_count}" if disagreed_count else None, delta_color="inverse")
+
+if employer_validations:
+    with st.expander("🔍 View All Employer Validation Records", expanded=False):
+        fb_display_df = pd.DataFrame(employer_validations)
+        st.dataframe(fb_display_df, use_container_width=True, hide_index=True)
