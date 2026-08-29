@@ -153,32 +153,111 @@ def detect_gaps(
     return result_df[columns]
 
 
+def flag_trainer_needs(gap_df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    """
+    Identifies trainer upskilling needs based on detected curriculum gaps.
+    Filters for skills marked as 'missing' or 'partial' and generates actionable reasons.
+
+    Args:
+        gap_df: DataFrame output from detect_gaps() containing:
+                ['skill', 'demand_count', 'matched_course', 'match_confidence', 'gap_status']
+
+    Returns:
+        DataFrame with columns:
+        - skill (str): In-demand skill needing trainer capability
+        - demand_count (int): Frequency of market demand
+        - trainer_upskilling_needed (bool): True if faculty development is required
+        - reason (str): Contextual rationale for trainer development
+    """
+    columns = [
+        "skill",
+        "demand_count",
+        "trainer_upskilling_needed",
+        "reason",
+    ]
+
+    if gap_df is None or gap_df.empty:
+        return pd.DataFrame(columns=columns)
+
+    # Filter for skills that are either missing or only partially covered
+    needs_df = gap_df[gap_df["gap_status"].isin(["missing", "partial"])].copy()
+
+    if needs_df.empty:
+        return pd.DataFrame(columns=columns)
+
+    records = []
+    for _, row in needs_df.iterrows():
+        skill = str(row["skill"])
+        demand_count = int(row.get("demand_count", 0))
+        gap_status = str(row.get("gap_status", "")).lower()
+        matched_course = str(row.get("matched_course", "None"))
+        confidence = float(row.get("match_confidence", 0.0))
+
+        if gap_status == "missing":
+            trainer_needed = True
+            reason = (
+                f"Critical Gap: '{skill}' is actively demanded by industry (count: {demand_count}) "
+                f"but has 0% coverage across vocational curricula. New master trainer certification required."
+            )
+        elif gap_status == "partial":
+            trainer_needed = True
+            if demand_count >= 2:
+                reason = (
+                    f"High Priority: '{skill}' has strong demand (count: {demand_count}) with only "
+                    f"partial curriculum alignment ({confidence}% match with '{matched_course}'). "
+                    f"Trainers must be upskilled to bridge modern industry standards."
+                )
+            else:
+                reason = (
+                    f"Emerging Demand: '{skill}' shows partial alignment ({confidence}% match with '{matched_course}'). "
+                    f"Vocational instructor workshops recommended."
+                )
+        else:
+            trainer_needed = False
+            reason = "Skill is adequately covered in existing course curriculum."
+
+        records.append(
+            {
+                "skill": skill,
+                "demand_count": demand_count,
+                "trainer_upskilling_needed": trainer_needed,
+                "reason": reason,
+            }
+        )
+
+    trainer_df = pd.DataFrame(records)
+    trainer_df = trainer_df.sort_values(
+        by=["demand_count", "skill"], ascending=[False, True]
+    ).reset_index(drop=True)
+
+    return trainer_df[columns]
+
+
 def main():
     from src.load_data import load_all_data
     from src.demand_scorer import compute_demand
 
-    print("=== Testing Skill Gap Detector ===")
+    print("=== Testing Skill Gap Detector & Trainer Needs ===")
     jobs_df, curriculum_df = load_all_data()
     demand_df = compute_demand(jobs_df)
     gap_df = detect_gaps(demand_df, curriculum_df)
+    trainer_df = flag_trainer_needs(gap_df)
 
     print(f"\nTotal Analyzed Skills: {len(gap_df)}")
-    print("\nGap Status Distribution:")
-    print(gap_df["gap_status"].value_counts().to_string())
+    print(f"Total Skills Requiring Trainer Upskilling: {len(trainer_df)}")
 
-    print("\n=== SKILL GAP ANALYSIS RESULTS (First 25 Skills) ===")
-    print("=" * 110)
+    print("\n=== TOP TRAINER DEVELOPMENT PRIORITIES ===")
+    print("=" * 115)
     print(
-        f"{'SKILL':<36} | {'DEMAND':<6} | {'GAP STATUS':<10} | {'CONFIDENCE':<10} | {'MATCHED COURSE'}"
+        f"{'SKILL':<32} | {'DEMAND':<6} | {'UPSKILL?':<8} | {'REASON'}"
     )
-    print("=" * 110)
+    print("=" * 115)
 
-    for _, row in gap_df.head(25).iterrows():
+    for _, row in trainer_df.head(15).iterrows():
         print(
-            f"{row['skill']:<36} | {row['demand_count']:<6} | {row['gap_status']:<10} | "
-            f"{row['match_confidence']:<10.1f} | {row['matched_course']}"
+            f"{row['skill']:<32} | {row['demand_count']:<6} | {str(row['trainer_upskilling_needed']):<8} | {row['reason']}"
         )
-    print("=" * 110)
+    print("=" * 115)
 
 
 if __name__ == "__main__":
