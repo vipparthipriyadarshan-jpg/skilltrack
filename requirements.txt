@@ -1,0 +1,7 @@
+streamlit
+pandas
+spacy
+scikit-learn
+python-dotenv
+rapidfuzz
+requests
