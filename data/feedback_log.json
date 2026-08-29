@@ -1,0 +1,16 @@
+[
+  {
+    "skill": "Docker",
+    "course": "Certificate in Python and Web Basics",
+    "gap_status": "partial",
+    "user_response": "Agree",
+    "timestamp": "2026-08-29 20:06:20"
+  },
+  {
+    "skill": "Kubernetes",
+    "course": "Advanced Frontend Web Development",
+    "gap_status": "partial",
+    "user_response": "Disagree",
+    "timestamp": "2026-08-29 20:06:20"
+  }
+]

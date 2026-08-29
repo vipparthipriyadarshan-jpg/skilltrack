@@ -1,12 +1,6 @@
-"""
-Skill-Industry Alignment Dashboard — PS 26134
-================================================
-Premium glass-morphism Streamlit dashboard.
-
-Run:  streamlit run app/dashboard.py
-"""
-
+import json
 import sys
+from datetime import datetime
 from pathlib import Path
 import pandas as pd
 import streamlit as st
@@ -19,6 +13,39 @@ from src.load_data import load_all_data
 from src.skill_extractor import extract_skills
 from src.demand_scorer import compute_demand
 from src.gap_detector import detect_gaps, flag_trainer_needs
+
+FEEDBACK_FILE = PROJECT_ROOT / "data" / "feedback_log.json"
+
+
+def log_feedback(skill: str, course: str, gap_status: str, user_response: str):
+    """
+    Appends {skill, course, gap_status, user_response, timestamp} to data/feedback_log.json.
+    Automatically creates the file and parent directory if it does not exist yet.
+    """
+    FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    logs = []
+    if FEEDBACK_FILE.exists():
+        try:
+            with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+                content = json.load(f)
+                if isinstance(content, list):
+                    logs = content
+        except Exception:
+            logs = []
+
+    entry = {
+        "skill": skill,
+        "course": course,
+        "gap_status": gap_status,
+        "user_response": user_response,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    logs.append(entry)
+
+    with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
+        json.dump(logs, f, indent=2)
+
+    return entry
 
 # ─── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -358,30 +385,102 @@ with tab1:
     if not top10.empty:
         st.bar_chart(top10[["skill", "demand_count"]].set_index("skill"), color="#7C3AED", height=300)
 
-    st.caption(f"Showing {len(disp_gap)} of {len(f_gap)} skills.")
+    st.markdown("#### Interactive Skill Gap Matrix & Human-in-the-Loop Feedback")
+    st.caption("Review AI-detected curriculum alignments and click **Agree** or **Disagree** to calibrate the engine.")
 
-    # Color-coded table
-    def color_gap(row):
-        s = row["gap_status"]
-        if s == "covered":
-            return ["background-color:rgba(16,185,129,0.07);color:#34D399"] * len(row)
-        elif s == "partial":
-            return ["background-color:rgba(245,158,11,0.07);color:#FBBF24"] * len(row)
-        return ["background-color:rgba(239,68,68,0.07);color:#F87171"] * len(row)
-
-    if not disp_gap.empty:
-        styled = (
+    if disp_gap.empty:
+        st.info("No skills match the selected filter criteria. Adjust the sidebar filters.")
+    else:
+        # Sort rows by demand descending, then confidence ascending
+        sorted_gap = (
             disp_gap.sort_values(["demand_count", "match_confidence"], ascending=[False, True])
             .reset_index(drop=True)
-            .style.apply(color_gap, axis=1)
-            .format({"match_confidence": "{:.1f}%"})
         )
-        st.dataframe(styled, use_container_width=True, hide_index=True, height=480)
-    else:
-        st.info("No skills match filters. Adjust the sidebar.")
 
-    st.download_button("📥 Download Gap Report", disp_gap.to_csv(index=False).encode(), "skill_gap_report.csv", "text/csv")
+        # Pagination / View controls
+        page_col1, page_col2 = st.columns([1, 4])
+        with page_col1:
+            page_size = st.selectbox("Rows per page", [10, 20, 50, "All"], index=0, key="gap_page_size")
+        
+        total_rows = len(sorted_gap)
+        if page_size == "All":
+            num_pages = 1
+            current_page = 1
+            page_rows = sorted_gap
+        else:
+            num_pages = max(1, (total_rows + page_size - 1) // page_size)
+            with page_col2:
+                current_page = st.number_input(f"Page (1 to {num_pages})", min_value=1, max_value=num_pages, value=1, step=1, key="gap_page_num")
+            start_idx = (current_page - 1) * page_size
+            end_idx = min(start_idx + page_size, total_rows)
+            page_rows = sorted_gap.iloc[start_idx:end_idx]
 
+        st.caption(f"Showing rows {start_idx + 1 if page_size != 'All' else 1}–{end_idx if page_size != 'All' else total_rows} of {total_rows} skills.")
+
+        # Interactive Table Header
+        h_c1, h_c2, h_c3, h_c4, h_c5, h_c6, h_c7 = st.columns([2.5, 1, 1.2, 1, 3, 1.1, 1.1])
+        h_c1.markdown("**In-Demand Skill**")
+        h_c2.markdown("**Demand**")
+        h_c3.markdown("**Gap Status**")
+        h_c4.markdown("**Match %**")
+        h_c5.markdown("**Best Matched Course**")
+        h_c6.markdown("**Feedback**")
+        h_c7.markdown("")
+
+        st.markdown("<hr style='margin:0.2rem 0 0.6rem; border-color:var(--glass-border);'>", unsafe_allow_html=True)
+
+        # Render each row with Agree / Disagree buttons
+        for idx, row in page_rows.iterrows():
+            skill_name = str(row["skill"])
+            demand_num = int(row["demand_count"])
+            gap_stat = str(row["gap_status"])
+            conf_val = float(row["match_confidence"])
+            course_val = str(row["matched_course"])
+
+            # Determine status pill
+            if gap_stat == "covered":
+                pill_html = '<span class="p p-g">Covered</span>'
+            elif gap_stat == "partial":
+                pill_html = '<span class="p p-y">Partial</span>'
+            else:
+                pill_html = '<span class="p p-r">Missing</span>'
+
+            r_c1, r_c2, r_c3, r_c4, r_c5, r_c6, r_c7 = st.columns([2.5, 1, 1.2, 1, 3, 1.1, 1.1])
+
+            r_c1.markdown(f"**{skill_name}**")
+            r_c2.markdown(f"<span style='color:var(--text-2); font-weight:600;'>{demand_num}</span>", unsafe_allow_html=True)
+            r_c3.markdown(pill_html, unsafe_allow_html=True)
+            r_c4.markdown(f"<span style='font-family:var(--mono); color:var(--text-2);'>{conf_val:.1f}%</span>", unsafe_allow_html=True)
+            r_c5.markdown(f"<span style='font-size:0.85rem; color:var(--text-1);'>{course_val}</span>", unsafe_allow_html=True)
+
+            if r_c6.button("👍 Agree", key=f"btn_agree_{idx}_{skill_name}", use_container_width=True):
+                entry = log_feedback(skill_name, course_val, gap_stat, "Agree")
+                st.success(f"Feedback logged: **Agree** on '{skill_name}' (matched with '{course_val}')")
+                st.toast(f"✅ Saved Agree for {skill_name}")
+
+            if r_c7.button("👎 Disagree", key=f"btn_disagree_{idx}_{skill_name}", use_container_width=True):
+                entry = log_feedback(skill_name, course_val, gap_stat, "Disagree")
+                st.warning(f"Feedback logged: **Disagree** on '{skill_name}' (flagged for review)")
+                st.toast(f"⚠️ Saved Disagree for {skill_name}")
+
+            st.markdown("<hr style='margin:0.2rem 0; border-color:rgba(255,255,255,0.04);'>", unsafe_allow_html=True)
+
+    st.markdown("")
+    dl_col1, dl_col2 = st.columns([2, 2])
+    with dl_col1:
+        st.download_button("📥 Download Gap Report (CSV)", disp_gap.to_csv(index=False).encode(), "skill_gap_report.csv", "text/csv")
+
+    # Feedback Log Viewer
+    if FEEDBACK_FILE.exists():
+        try:
+            with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+                fb_data = json.load(f)
+            if fb_data:
+                with st.expander(f"📝 User Feedback Audit Log ({len(fb_data)} entries in data/feedback_log.json)"):
+                    fb_df = pd.DataFrame(fb_data)
+                    st.dataframe(fb_df, use_container_width=True, hide_index=True)
+        except Exception:
+            pass
 
 # ═══ TAB 2 — Course Health Audit ════════════════════════════════════════════
 with tab2:
