@@ -13,6 +13,7 @@ from src.load_data import load_all_data
 from src.skill_extractor import extract_skills
 from src.demand_scorer import compute_demand
 from src.gap_detector import detect_gaps, flag_trainer_needs
+from src.live_fetcher import fetch_live_jobs_adzuna, generate_demo_live_jobs
 
 FEEDBACK_FILE = PROJECT_ROOT / "data" / "feedback_log.json"
 
@@ -278,15 +279,59 @@ if not ok:
     """, unsafe_allow_html=True)
     st.stop()
 
-jobs_df = data["jobs"]
+# ─── Live Job Session State Management ──────────────────────────────────────
+if "live_jobs" not in st.session_state:
+    st.session_state["live_jobs"] = pd.DataFrame(columns=["job_id", "job_title", "sector", "district", "job_description"])
+
+baseline_jobs_df = data["jobs"]
 curr_df = data["curriculum"]
-demand_df = data["demand"]
-gap_df = data["gap"]
-trainer_df = data["trainer"]
+
+# Combine baseline jobs with live-ingested jobs
+if not st.session_state["live_jobs"].empty:
+    jobs_df = pd.concat([baseline_jobs_df, st.session_state["live_jobs"]], ignore_index=True)
+else:
+    jobs_df = baseline_jobs_df
+
+demand_df = compute_demand(jobs_df)
+gap_df = detect_gaps(demand_df, curr_df)
+trainer_df = flag_trainer_needs(gap_df)
 
 
-# ─── Sidebar Filters ────────────────────────────────────────────────────────
+# ─── Sidebar Filters & Live Ingestion ───────────────────────────────────────
 with st.sidebar:
+    st.markdown("### ⚡ Live Market Ingestion (Adzuna)")
+    live_sec = st.selectbox("Sector for Live Feed", ["IT", "Automotive", "Textile"], index=0, key="live_sec_sel")
+    live_dist = st.selectbox("District for Live Feed", ["Pune", "Nashik", "Nagpur"], index=0, key="live_dist_sel")
+    live_cnt = st.slider("Number of jobs", min_value=5, max_value=10, value=6, key="live_cnt_sel")
+
+    # Fetch Live Jobs Now Button
+    if st.button("🚀 Fetch Live Jobs Now", type="primary", use_container_width=True):
+        with st.spinner(f"Calling Adzuna API for {live_sec} jobs in {live_dist}..."):
+            new_jobs, err = fetch_live_jobs_adzuna(live_sec, live_dist, live_cnt)
+
+            if err:
+                st.warning(f"⚠️ {err}")
+                # Provide instant demo fallback option
+                st.info("💡 You can click the test button below to simulate live API ingestion with a fresh batch of realistic market jobs.")
+            elif new_jobs is not None and not new_jobs.empty:
+                st.session_state["live_jobs"] = pd.concat([st.session_state["live_jobs"], new_jobs], ignore_index=True)
+                st.success(f"✅ Ingested {len(new_jobs)} live job postings from Adzuna!")
+                st.rerun()
+
+    # Instant Demo Simulation Button (when credentials are not yet added to .env)
+    if st.button("🧪 Test Ingestion with Demo Live Batch (5 Jobs)", use_container_width=True):
+        demo_jobs = generate_demo_live_jobs(live_sec, live_dist, count=5)
+        st.session_state["live_jobs"] = pd.concat([st.session_state["live_jobs"], demo_jobs], ignore_index=True)
+        st.success(f"✅ Ingested 5 live {live_sec} market postings for {live_dist}!")
+        st.rerun()
+
+    if not st.session_state["live_jobs"].empty:
+        st.caption(f"Currently tracking **{len(st.session_state['live_jobs'])} live ingested jobs**.")
+        if st.button("🔄 Reset to Baseline (20 Jobs)", use_container_width=True):
+            st.session_state["live_jobs"] = pd.DataFrame(columns=["job_id", "job_title", "sector", "district", "job_description"])
+            st.rerun()
+
+    st.markdown("---")
     st.markdown("### 🏷️ Sector")
     all_sectors = sorted(jobs_df["sector"].dropna().unique().tolist())
     sel_sectors = st.multiselect("Sectors", all_sectors, default=all_sectors, label_visibility="collapsed")
@@ -328,9 +373,11 @@ n_par = len(f_gap[f_gap["gap_status"] == "partial"])
 n_mis = len(f_gap[f_gap["gap_status"] == "missing"])
 align_pct = round(n_cov / n_skills * 100, 1) if n_skills else 0
 
+live_count_text = f" ({len(st.session_state['live_jobs'])} live)" if not st.session_state["live_jobs"].empty else ""
+
 st.markdown(f"""
 <div class="g-row">
-  <div class="g-card"><div class="label">Jobs Analyzed</div><div class="val">{len(jobs_df)}</div><div class="sub">{len(sel_sectors)} sectors · {len(sel_districts)} districts</div></div>
+  <div class="g-card"><div class="label">Jobs Analyzed</div><div class="val">{len(jobs_df)}<span style='font-size:0.9rem; color:#A855F7;'>{live_count_text}</span></div><div class="sub">{len(sel_sectors)} sectors · {len(sel_districts)} districts</div></div>
   <div class="g-card"><div class="label">Skills Tracked</div><div class="val">{n_skills}</div><div class="sub">spaCy NLP extraction</div></div>
   <div class="g-card"><div class="label" style="color:var(--green)">✓ Covered</div><div class="val" style="color:var(--green)">{n_cov}</div><div class="sub">{align_pct}% alignment</div></div>
   <div class="g-card"><div class="label" style="color:var(--amber)">⚠ Partial</div><div class="val" style="color:var(--amber)">{n_par}</div><div class="sub">50–80% match</div></div>
