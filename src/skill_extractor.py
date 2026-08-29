@@ -1,5 +1,6 @@
 import re
 from typing import List, Optional, Set
+import pandas as pd
 import spacy
 from spacy.tokens import Doc
 
@@ -141,17 +142,19 @@ def extract_skills(text: Optional[str]) -> List[str]:
     """
     Extract technical and vocational skills from input text using spaCy and keyword matching.
 
-    Steps:
-    1. Validate input; returns empty list if None, non-string, or very short.
-    2. Extract noun chunks and named entities as candidate phrases.
-    3. Match candidate phrases and normalized text against canonical SKILL_KEYWORDS.
-    4. Return a clean, deduplicated list of matched skills.
+    Handles empty, None, NaN, numeric, or malformed text gracefully without crashing.
     """
-    if not text or not isinstance(text, str):
+    if text is None:
         return []
 
+    # Handle float / NaN / non-string gracefully
+    if not isinstance(text, str):
+        if pd.isna(text):
+            return []
+        text = str(text)
+
     cleaned_text = text.strip()
-    if len(cleaned_text) < 3:
+    if not cleaned_text or len(cleaned_text) < 3:
         return []
 
     nlp = get_nlp()

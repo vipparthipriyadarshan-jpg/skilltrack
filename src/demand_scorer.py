@@ -38,17 +38,22 @@ def compute_demand(jobs_df: Optional[pd.DataFrame]) -> pd.DataFrame:
     )
 
     for _, row in jobs_df.iterrows():
-        desc = row.get("job_description", "")
-        sector = row.get("sector")
-        district = row.get("district")
+        desc = row["job_description"] if "job_description" in row else ""
+        sector = row["sector"] if "sector" in row else "Unspecified"
+        district = row["district"] if "district" in row else "Unspecified"
+
+        if pd.isna(desc):
+            continue
 
         extracted_skills = extract_skills(desc)
+        if not extracted_skills:
+            continue
 
         for skill in extracted_skills:
             skill_stats[skill]["demand_count"] += 1
-            if pd.notna(sector) and sector:
+            if pd.notna(sector) and str(sector).strip() and str(sector).strip() != "nan":
                 skill_stats[skill]["sectors"].add(str(sector).strip())
-            if pd.notna(district) and district:
+            if pd.notna(district) and str(district).strip() and str(district).strip() != "nan":
                 skill_stats[skill]["districts"].add(str(district).strip())
 
     records = []

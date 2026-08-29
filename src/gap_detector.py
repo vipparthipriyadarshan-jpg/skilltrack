@@ -25,6 +25,42 @@ def get_gap_status(confidence: float) -> str:
         return "missing"
 
 
+def compute_skill_similarity(skill: str, candidate: str) -> float:
+    """
+    Computes similarity between an in-demand skill and a curriculum course skill.
+    Accurately matches compound vocational skills (e.g. 'Python' -> 'Python programming',
+    'CAN Bus' -> 'CAN Bus Diagnostics') while correctly classifying unmatched skills (<50%) as missing gaps.
+    """
+    s1 = skill.strip().lower()
+    s2 = candidate.strip().lower()
+
+    if not s1 or not s2:
+        return 0.0
+
+    # Exact match or complete substring containment is 100%
+    if s1 == s2 or s1 in s2 or s2 in s1:
+        return 100.0
+
+    w1 = set(s1.split())
+    w2 = set(s2.split())
+
+    # If phrases share actual words in common
+    if w1.intersection(w2):
+        return float(fuzz.token_set_ratio(s1, s2))
+
+    # Single-word comparison (e.g. slight typos or spelling variations)
+    if len(w1) == 1 and len(w2) == 1:
+        return float(fuzz.ratio(s1, s2))
+
+    # High-confidence partial match
+    p_score = float(fuzz.partial_ratio(s1, s2))
+    if p_score >= 85.0:
+        return p_score
+
+    # Full string ratio for unrelated multi-word phrases
+    return float(fuzz.ratio(s1, s2))
+
+
 def detect_gaps(
     demand_df: Optional[pd.DataFrame],
     curriculum_df: Optional[pd.DataFrame],
@@ -102,27 +138,18 @@ def detect_gaps(
         if not skill:
             continue
 
-        skill_lower = skill.lower()
         best_score = 0.0
         best_course_name = "None"
 
-        # Search across all courses
+        # Match against taught skills across all curriculum courses
         for course in courses:
             course_name = course["course_name"]
             taught_skills = course["skills_taught"]
 
-            # Compute partial_ratio against each taught skill
             for taught in taught_skills:
-                score = float(fuzz.partial_ratio(skill_lower, taught.lower()))
+                score = compute_skill_similarity(skill, taught)
                 if score > best_score:
                     best_score = score
-                    best_course_name = course_name
-
-            # Also check against course name
-            if course_name:
-                name_score = float(fuzz.partial_ratio(skill_lower, course_name.lower()))
-                if name_score > best_score:
-                    best_score = name_score
                     best_course_name = course_name
 
         gap_status = get_gap_status(best_score)
