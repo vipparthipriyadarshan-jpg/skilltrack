@@ -513,6 +513,26 @@ with tab1:
             st.markdown("<hr style='margin:0.2rem 0; border-color:rgba(255,255,255,0.04);'>", unsafe_allow_html=True)
 
     st.markdown("")
+
+    # Full Color-Coded Table Expander
+    def color_gap(row):
+        s = row["gap_status"]
+        if s == "covered":
+            return ["background-color:rgba(16,185,129,0.07);color:#34D399"] * len(row)
+        elif s == "partial":
+            return ["background-color:rgba(245,158,11,0.07);color:#FBBF24"] * len(row)
+        return ["background-color:rgba(239,68,68,0.07);color:#F87171"] * len(row)
+
+    if not disp_gap.empty:
+        with st.expander(f"📊 Full Color-Coded Gap Table ({len(disp_gap)} skills)", expanded=False):
+            styled_full = (
+                disp_gap.sort_values(["demand_count", "match_confidence"], ascending=[False, True])
+                .reset_index(drop=True)
+                .style.apply(color_gap, axis=1)
+                .format({"match_confidence": "{:.1f}%"})
+            )
+            st.dataframe(styled_full, use_container_width=True, hide_index=True, height=450)
+
     dl_col1, dl_col2 = st.columns([2, 2])
     with dl_col1:
         st.download_button("📥 Download Gap Report (CSV)", disp_gap.to_csv(index=False).encode(), "skill_gap_report.csv", "text/csv")
