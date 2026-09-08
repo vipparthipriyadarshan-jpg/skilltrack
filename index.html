@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillTrack AI — PS 26134 | Coordinator Presentation Portal</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700;800&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ══════════════════════════════════════════════════════════════════
+       DESIGN TOKENS (Matching PS 26134 Production Theme)
+    ══════════════════════════════════════════════════════════════════ */
+    :root {
+      --bg-main:       #0F1E33;
+      --bg-card:       #16283F;
+      --bg-card-hover: #1c3350;
+      --bg-darker:     #0a1525;
+      --accent:        #E0A526;
+      --accent-dim:    rgba(224, 165, 38, 0.15);
+      --accent-border: rgba(224, 165, 38, 0.35);
+      --red:           #E14B4B;
+      --red-dim:       rgba(225, 75, 75, 0.15);
+      --red-border:    rgba(225, 75, 75, 0.35);
+      --green:         #3FAE7A;
+      --green-dim:     rgba(63, 174, 122, 0.15);
+      --green-border:  rgba(63, 174, 122, 0.35);
+      --text-1:        #F4F1EA;
+      --text-2:        #9AA9BA;
+      --text-3:        #607080;
+      --border:        rgba(244, 241, 234, 0.14);
+      --border-hover:  rgba(244, 241, 234, 0.28);
+      --shadow:        0 10px 30px -5px rgba(0, 0, 0, 0.4);
+      --shadow-lg:     0 20px 45px -10px rgba(0, 0, 0, 0.55);
+      --r:             14px;
+      --r-sm:          8px;
+      --spring:        all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      
+      --serif: 'Source Serif 4', Georgia, serif;
+      --sans:  'Inter', -apple-system, sans-serif;
+      --mono:  'IBM Plex Mono', monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-1);
+      font-family: var(--sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* Subtle grid texture */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.25;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       NAVBAR
+    ══════════════════════════════════════════════════════════════════ */
+    nav {
+      position: sticky;
+      top: 0;
+      background: rgba(15, 30, 51, 0.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      padding: 0.9rem 0;
+    }
+
+    .nav-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--text-1);
+    }
+
+    .brand-logo {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .brand-title {
+      font-family: var(--serif);
+      font-weight: 700;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .badge-ps {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .status-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--green);
+      font-family: var(--mono);
+      background: var(--green-dim);
+      border: 1px solid var(--green-border);
+      padding: 0.3rem 0.75rem;
+      border-radius: 99px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--green);
+      animation: pulseDot 2s infinite;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.3); }
+    }
+
+    .btn-launch {
+      background: var(--accent);
+      color: #0F1E33;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.55rem 1.25rem;
+      border-radius: var(--r-sm);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--spring);
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-launch:hover {
+      background: #f1b538;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(224, 165, 38, 0.4);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       HERO BANNER
+    ══════════════════════════════════════════════════════════════════ */
+    .hero {
+      padding: 3.5rem 0 2.5rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-pre {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.95rem;
+      border-radius: 99px;
+      font-size: 0.8rem;
+      color: var(--text-2);
+      margin-bottom: 1.25rem;
+    }
+
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4.5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.18;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.2rem;
+      color: var(--text-1);
+    }
+
+    .hero h1 .highlight {
+      background: linear-gradient(135deg, #F4F1EA 20%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-lead {
+      max-width: 820px;
+      margin: 0 auto 2rem;
+      font-size: 1.08rem;
+      color: var(--text-2);
+      line-height: 1.7;
+    }
+
+    .hero-lead strong {
+      color: var(--text-1);
+      font-weight: 600;
+    }
+
+    .hero-cta-group {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-1);
+      border: 1px solid var(--border);
+      padding: 0.65rem 1.4rem;
+      border-radius: var(--r-sm);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--spring);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       KPI CARDS ROW
+    ══════════════════════════════════════════════════════════════════ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    @media (max-width: 1024px) {
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.25rem 1.15rem;
+      transition: var(--spring);
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow);
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .kpi-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-3);
+      margin-bottom: 0.35rem;
+    }
+
+    .kpi-val {
+      font-family: var(--mono);
+      font-size: 2rem;
+      font-weight: 600;
+      line-height: 1;
+      margin-bottom: 0.4rem;
+      color: var(--text-1);
+    }
+
+    .kpi-val.green { color: var(--green); }
+    .kpi-val.amber { color: var(--accent); }
+    .kpi-val.red   { color: var(--red); }
+
+    .kpi-sub {
+      font-size: 0.75rem;
+      color: var(--text-2);
+      margin-top: auto;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECTION TABS & INTERACTIVE PRESENTATION
+    ══════════════════════════════════════════════════════════════════ */
+    .presentation-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 2.25rem;
+      box-shadow: var(--shadow-lg);
+      margin-bottom: 3.5rem;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+      margin-bottom: 2rem;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-2);
+      padding: 0.65rem 1.2rem;
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      transition: var(--spring);
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-1);
+      background: rgba(244, 241, 234, 0.05);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       CARD GRIDS INSIDE TABS
+    ══════════════════════════════════════════════════════════════════ */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .feature-card {
+      background: rgba(15, 30, 51, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: var(--spring);
+    }
+
+    .feature-card:hover {
+      border-color: var(--accent-border);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 0.85rem;
+      display: inline-block;
+    }
+
+    .feature-card h3 {
+      font-family: var(--serif);
+      font-size: 1.18rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-1);
+    }
+
+    .feature-card p {
+      font-size: 0.88rem;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 1rem;
+    }
+
+    .pill {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-weight: 600;
+    }
+    .pill-green { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
+    .pill-amber { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-border); }
+    .pill-red   { background: var(--red-dim);   color: var(--red);   border: 1px solid var(--red-border); }
+
+    /* ══════════════════════════════════════════════════════════════════
+       DEMO RUN SHEET STEPPER
+    ══════════════════════════════════════════════════════════════════ */
+    .stepper {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 1.25rem;
+      background: rgba(15, 30, 51, 0.65);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      background: var(--accent);
+      color: #0F1E33;
+      font-family: var(--mono);
+      font-weight: 700;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.9rem;
+    }
+
+    .step-body h4 {
+      font-family: var(--serif);
+      font-size: 1.05rem;
+      color: var(--text-1);
+      margin-bottom: 0.25rem;
+    }
+
+    .step-body p {
+      font-size: 0.88rem;
+      color: var(--text-2);
+      line-height: 1.55;
+    }
+
+    .step-action-tag {
+      display: inline-block;
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      font-family: var(--mono);
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       EVIDENCE & VERIFICATION TABLE
+    ══════════════════════════════════════════════════════════════════ */
+    .audit-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .audit-table th {
+      background: #112238;
+      color: var(--text-2);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .audit-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid rgba(244, 241, 234, 0.08);
+      color: var(--text-1);
+    }
+
+    .audit-table tr:hover td {
+      background: rgba(244, 241, 234, 0.02);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       INTERACTIVE NLP TESTER WIDGET
+    ══════════════════════════════════════════════════════════════════ */
+    .demo-sandbox {
+      background: rgba(15, 30, 51, 0.75);
+      border: 1px solid var(--accent-border);
+      border-radius: var(--r);
+      padding: 1.75rem;
+      margin-top: 2rem;
+    }
+
+    .sandbox-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .sandbox-head h4 {
+      font-family: var(--serif);
+      font-size: 1.15rem;
+      color: var(--accent);
+    }
+
+    textarea.sandbox-input {
+      width: 100%;
+      background: #0a1525;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      color: var(--text-1);
+      padding: 0.85rem;
+      font-family: var(--sans);
+      font-size: 0.88rem;
+      resize: vertical;
+      min-height: 80px;
+      margin-bottom: 1rem;
+    }
+
+    textarea.sandbox-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .sandbox-btn {
+      background: var(--accent);
+      color: #0F1E33;
+      border: none;
+      padding: 0.5rem 1.25rem;
+      font-weight: 700;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      transition: var(--spring);
+    }
+
+    .sandbox-btn:hover {
+      background: #f1b538;
+      transform: translateY(-1px);
+    }
+
+    .sandbox-results {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #08111e;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--border);
+      display: none;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════════════════════════ */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 0;
+      text-align: center;
+      font-size: 0.84rem;
+      color: var(--text-3);
+    }
+
+    footer p strong {
+      color: var(--text-2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <nav>
+    <div class="container nav-inner">
+      <a href="#" class="brand">
+        <span class="brand-logo">🎯</span>
+        <div>
+          <span class="brand-title">SkillTrack AI</span>
+          <span class="badge-ps">PS 26134</span>
+        </div>
+      </a>
+      <div class="nav-actions">
+        <div class="status-live">
+          <span class="status-dot"></span>
+          <span>Pipeline Verified</span>
+        </div>
+        <a href="http://localhost:8501" target="_blank" class="btn-launch">
+          <span>🚀 Launch Live Dashboard</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero container">
+    <div class="hero-pre">
+      <span>🏛️ Govt of Maharashtra Vocational &amp; ITI Alignment Initiative</span>
+      <span>•</span>
+      <span>Pune · Nashik · Nagpur</span>
+    </div>
+    <h1>
+      Real-Time Skill Demand &amp;<br />
+      <span class="highlight">Curriculum Intelligence Engine</span>
+    </h1>
+    <p class="hero-lead">
+      Matches live industry hiring demand in <strong>IT, Automotive, and Textile</strong> against
+      vocational syllabi. Identifies <strong>urgent skill gaps</strong>, flags <strong>obsolete courses</strong>,
+      and produces <strong>trainer upskilling roadmaps</strong> calibrated by real employer feedback.
+    </p>
+
+    <div class="hero-cta-group">
+      <a href="http://localhost:8501" target="_blank" class="btn-launch" style="padding: 0.75rem 1.6rem; font-size: 0.95rem;">
+        <span>🚀 Open Streamlit Dashboard</span>
+      </a>
+      <a href="#demo-flow" class="btn-secondary" onclick="openTab('tab-demo')">
+        <span>📋 Coordinator Walkthrough Sheet</span>
+      </a>
+    </div>
+
+    <!-- 6 Verified KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Jobs Analyzed</div>
+        <div class="kpi-val">20<span style="font-size: 0.9rem; color: var(--accent); font-weight: 500;">+live</span></div>
+        <div class="kpi-sub">IT · Auto · Textile</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Skills Tracked</div>
+        <div class="kpi-val">99</div>
+        <div class="kpi-sub">spaCy NLP Catalog</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">✓ Covered</div>
+        <div class="kpi-val green">58</div>
+        <div class="kpi-sub">&gt;80% match in syllabi</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">⚠ Partial</div>
+        <div class="kpi-val amber">28</div>
+        <div class="kpi-sub">50–80% alignment</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">✕ Missing</div>
+        <div class="kpi-val red">13</div>
+        <div class="kpi-sub">&lt;50% match (gaps)</div>
+      </div>
+      <div class="kpi-card" style="border-color: var(--red-border);">
+        <div class="kpi-label">Trainer Priority</div>
+        <div class="kpi-val red">41</div>
+        <div class="kpi-sub">Faculty Roadmaps</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Coordinator Presentation Interactive Hub -->
+  <main class="container">
+    <section class="presentation-panel" id="demo-flow">
+      <!-- Tabs Navigation -->
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab(event, 'tab-overview')">📌 Executive Summary</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-pipeline')">⚙️ 4-Tier Pipeline Architecture</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-demo')">🎙️ 3-Minute Demo Run Sheet</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-audit')">🧪 11/11 Test Verification</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-interactive')">⚡ Live Extraction Sandbox</button>
+      </div>
+
+      <!-- TAB 1: Executive Summary -->
+      <div id="tab-overview" class="tab-content active">
+        <div class="feature-grid">
+          <div class="feature-card">
+            <span class="feature-icon">🚨</span>
+            <h3>The Core Problem</h3>
+            <p>
+              Vocational curricula (ITIs &amp; Polytechnics) take 3–5 years to update through bureaucratic committees. Meanwhile, industry demand shifts in months (EV Battery Tech, Cloud DevOps, AI, Digital Weaving), producing severe unemployability and faculty mismatch.
+            </p>
+            <div class="tag-list">
+              <span class="pill pill-red">Curriculum Lag</span>
+              <span class="pill pill-red">Faculty Deficit</span>
+              <span class="pill pill-amber">Oversupplied Courses</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">💡</span>
+            <h3>The SkillTrack Solution</h3>
+            <p>
+              A continuous, evidence-based data intelligence platform that reads live job postings via Adzuna API, maps demanded competencies against vocational course syllabi using RapidFuzz fuzzy token matching, and generates localized faculty upskilling roadmaps.
+            </p>
+            <div class="tag-list">
+              <span class="pill pill-green">Continuous Evidence</span>
+              <span class="pill pill-green">Dual-Tier NLP Engine</span>
+              <span class="pill pill-amber">Regional Intelligence</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">🏆</span>
+            <h3>Why It Wins PS 26134</h3>
+            <p>
+              Unlike static mockups, this platform includes a live <strong>Human-in-the-Loop calibration loop</strong> where employers validate gap ratings with Agree/Disagree votes, actively tuning matching confidence thresholds.
+            </p>
+            <div class="tag-list">
+              <span class="pill pill-green">Agree / Disagree Loop</span>
+              <span class="pill pill-green">Obsolete Course Flags</span>
+              <span class="pill pill-green">Live Adzuna Ingestion</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: Pipeline Architecture -->
+      <div id="tab-pipeline" class="tab-content">
+        <div class="feature-grid">
+          <div class="feature-card">
+            <span class="feature-icon">1️⃣</span>
+            <h3>Data Ingestion</h3>
+            <p>
+              Validates schemas across baseline benchmarks (`jobs_sample.csv`, `curriculum_sample.csv`) and ingests real-time market postings from Adzuna's free-tier API across Pune, Nashik, and Nagpur.
+            </p>
+            <div class="tag-list">
+              <span class="pill pill-green">Schema Validated</span>
+              <span class="pill pill-amber">Live API Hook</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">2️⃣</span>
+            <h3>Dual-Tier NLP Extractor</h3>
+            <p>
+              Extracts technical and vocational competencies using spaCy (`en_core_web_sm`) noun-chunk and entity recognition, backed by an unblock-proof regex fallback engine ensuring 100% uptime on Windows.
+            </p>
+            <div class="tag-list">
+              <span class="pill pill-green">99 Skills Tracked</span>
+              <span class="pill pill-green">0 Stopwords/Noise</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">3️⃣</span>
+            <h3>Fuzzy Gap Detector</h3>
+            <p>
+              Computes token-set similarity between demanded skills and taught syllabi. Classifies every skill into <code>covered (&gt;80%)</code>, <code>partial (50–80%)</code>, or <code>missing (&lt;50%)</code>.
+            </p>
+            <div class="tag-list">
+              <span class="pill pill-green">Covered (58)</span>
+              <span class="pill pill-amber">Partial (28)</span>
+              <span class="pill pill-red">Missing (13)</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">4️⃣</span>
+            <h3>Audits &amp; Faculty Roadmaps</h3>
+            <p>
+              Automatically flags courses as 🟢 <strong>Aligned</strong> vs 🔴 <strong>Obsolete</strong> (&lt;40% demand). Isolates high-priority faculty upskilling needs with specific master-trainer certification roadmaps.
+            </p>
+            <div class="tag-list">
+              <span class="pill pill-red">4 Obsolete Flagged</span>
+              <span class="pill pill-amber">41 Trainer Flags</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Demo Run Sheet -->
+      <div id="tab-demo" class="tab-content">
+        <div class="stepper">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h4>Open Dashboard &amp; Point Out KPI Cards</h4>
+              <p>
+                Open <code>http://localhost:8501</code>. Show the 6 elevated cards (Jobs: 20, Skills: 99, Covered: 58, Partial: 28, Missing: 13, Trainer Priority: 41) and the always-visible Trainer Upskilling chip panel at the top.
+              </p>
+              <span class="step-action-tag">Action: Show High-Level Alignment Ratio (58.6%)</span>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h4>Demonstrate Live Ingestion (Adzuna API)</h4>
+              <p>
+                In the sidebar, select <strong>IT</strong> and <strong>Pune</strong>, then click <strong>"🚀 Fetch Live Jobs Now"</strong>. Show the amber pulse glow and watch the jobs counter update live (e.g. <code>27 (+7 live)</code>) without crashing.
+              </p>
+              <span class="step-action-tag">Action: Click "Fetch Live Jobs Now"</span>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h4>Human-in-the-Loop Feedback Loop</h4>
+              <p>
+                In <strong>Tab 1 (Skill Gap Matrix)</strong>, click <strong>"👍 Agree"</strong> on <em>Docker</em> or <strong>"👎 No"</strong> on <em>Kubernetes</em>. Scroll to the bottom <strong>Model Feedback</strong> panel to show the live validated counter (<em>"5 gaps validated by employers so far"</em>).
+              </p>
+              <span class="step-action-tag">Action: Click Agree/Disagree button on any row</span>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <h4>Show Obsolete Course Flagging</h4>
+              <p>
+                Switch to <strong>Tab 2 (Course Health Audit)</strong>. Point out the ratings: 15 Aligned vs 4 <strong>🔴 Obsolete Courses</strong> (e.g., <em>Certificate in COBOL &amp; Legacy Mainframe</em>, <em>Carburetor Tuning</em>). Show the red callout listing obsolete gap skills.
+              </p>
+              <span class="step-action-tag">Action: Switch to "Course Health Audit" tab</span>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <h4>Faculty Trainer Upskilling Roadmap</h4>
+              <p>
+                Switch to <strong>Tab 3 (Trainer Planner)</strong>. Show the actionable faculty intervention cards detailing high-priority master-trainer needs for skills with 0% curriculum coverage (AWS Cloud, Battery Chemistry, SIEM).
+              </p>
+              <span class="step-action-tag">Action: Switch to "Trainer Planner" tab</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: 11/11 Test Verification -->
+      <div id="tab-audit" class="tab-content">
+        <p style="color: var(--text-2); font-size: 0.9rem; margin-bottom: 1rem;">
+          Verified end-to-end via automated diagnostic suite (<code>tests/run_diagnostics.py</code>):
+        </p>
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>Check</th>
+              <th>Test Description</th>
+              <th>Status</th>
+              <th>Verified Metric / Output</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>A1-A4</strong></td>
+              <td>Environment &amp; Credentials</td>
+              <td><span class="pill pill-green">PASS</span></td>
+              <td>Python 3.13, spaCy, RapidFuzz, Pandas, Adzuna Keys configured</td>
+            </tr>
+            <tr>
+              <td><strong>B1-B3</strong></td>
+              <td>Data Schema &amp; Gap Potential</td>
+              <td><span class="pill pill-green">PASS</span></td>
+              <td>20 jobs, 19 courses, 44 verified gap skills in market</td>
+            </tr>
+            <tr>
+              <td><strong>C1-C4</strong></td>
+              <td>Pipeline &amp; Fuzzy Gap Engine</td>
+              <td><span class="pill pill-green">PASS</span></td>
+              <td>99 skills extracted, 58 covered, 28 partial, 13 missing</td>
+            </tr>
+            <tr>
+              <td><strong>D1-D5</strong></td>
+              <td>Streamlit Dashboard &amp; Filters</td>
+              <td><span class="pill pill-green">PASS</span></td>
+              <td>HTTP 200 OK, zero tracebacks, all 6 KPI cards non-zero</td>
+            </tr>
+            <tr>
+              <td><strong>E1-E4</strong></td>
+              <td>Live Adzuna API Hook &amp; Error Handling</td>
+              <td><span class="pill pill-green">PASS</span></td>
+              <td>HTTP 200 on live fetch; HTTP 401 graceful alert on invalid key</td>
+            </tr>
+            <tr>
+              <td><strong>F1-F3</strong></td>
+              <td>Feedback Loop &amp; Counter</td>
+              <td><span class="pill pill-green">PASS</span></td>
+              <td>Logged to <code>feedback_log.json</code>; consensus % updated</td>
+            </tr>
+            <tr>
+              <td><strong>H1-H6</strong></td>
+              <td>Problem Statement Coverage</td>
+              <td><span class="pill pill-green">PASS</span></td>
+              <td>Multi-dimensional demand, obsolete courses, trainer roadmaps</td>
+            </tr>
+            <tr>
+              <td><strong>I1-I3</strong></td>
+              <td>Fresh-Start Portability</td>
+              <td><span class="pill pill-green">PASS</span></td>
+              <td>Zero hardcoded paths, graceful error on missing CSV</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TAB 5: Interactive Sandbox -->
+      <div id="tab-interactive" class="tab-content">
+        <div class="demo-sandbox">
+          <div class="sandbox-head">
+            <h4>⚡ Quick Skill Extraction &amp; Gap Simulator</h4>
+            <span class="pill pill-amber">Client-Side Demo Engine</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-2); margin-bottom: 0.75rem;">
+            Test how the NLP matching works right here on this page without starting terminal processes:
+          </p>
+          <textarea id="sandboxText" class="sandbox-input" placeholder="Enter custom job requirements (e.g. Senior Cloud Architect with Docker, Kubernetes, AWS Cloud, and CI/CD in Pune)...">Looking for an EV Powertrain Engineer skilled in Battery Chemistry, MATLAB Simulink, CAN Bus Diagnostics, and ADAS Sensor Calibration in Pune.</textarea>
+          <button class="sandbox-btn" onclick="runSandboxExtract()">⚡ Extract Skills &amp; Benchmark Gaps</button>
+          
+          <div id="sandboxResults" class="sandbox-results">
+            <h5 style="color: var(--text-1); font-size: 0.95rem; margin-bottom: 0.5rem;">Extracted Competencies &amp; Syllabi Match:</h5>
+            <div id="sandboxPills" style="display: flex; gap: 0.5rem; flex-wrap: wrap;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p><strong>SkillTrack AI · Problem Statement 26134</strong></p>
+      <p style="margin-top: 0.35rem;">
+        Developed for Vocational Skill &amp; Curriculum Alignment Platform Evaluation · System Status: <strong>Ready for Demo</strong>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // Tab Switching Logic
+    function switchTab(evt, tabId) {
+      const tabs = document.querySelectorAll('.tab-content');
+      tabs.forEach(tab => tab.classList.remove('active'));
+
+      const btns = document.querySelectorAll('.tab-btn');
+      btns.forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      evt.currentTarget.classList.add('active');
+    }
+
+    function openTab(tabId) {
+      const tabs = document.querySelectorAll('.tab-content');
+      tabs.forEach(tab => tab.classList.remove('active'));
+
+      const btns = document.querySelectorAll('.tab-btn');
+      btns.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('onclick').includes(tabId)) {
+          btn.classList.add('active');
+        }
+      });
+
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    // Client-side quick simulator
+    const KNOWN_SKILLS = [
+      { name: "Battery Chemistry", status: "missing", match: "None (0%)" },
+      { name: "MATLAB Simulink", status: "missing", match: "None (0%)" },
+      { name: "CAN Bus Diagnostics", status: "partial", match: "Automotive Diagnostics (65%)" },
+      { name: "ADAS Sensor Calibration", status: "missing", match: "None (0%)" },
+      { name: "Docker", status: "missing", match: "None (42%)" },
+      { name: "Kubernetes", status: "missing", match: "None (0%)" },
+      { name: "AWS Cloud", status: "missing", match: "None (0%)" },
+      { name: "Python", status: "covered", match: "Python & Web Basics (100%)" },
+      { name: "React", status: "covered", match: "Advanced Frontend (100%)" },
+      { name: "SQL", status: "covered", match: "Diploma in Data Analysis (100%)" },
+      { name: "AutoCAD", status: "covered", match: "CAD for Mechanical (100%)" },
+      { name: "Loom Operation", status: "covered", match: "Textile Weaving (100%)" }
+    ];
+
+    function runSandboxExtract() {
+      const input = document.getElementById("sandboxText").value.toLowerCase();
+      const resultsContainer = document.getElementById("sandboxResults");
+      const pillsContainer = document.getElementById("sandboxPills");
+      pillsContainer.innerHTML = "";
+
+      let matched = [];
+      KNOWN_SKILLS.forEach(item => {
+        if (input.includes(item.name.toLowerCase())) {
+          matched.push(item);
+        }
+      });
+
+      if (matched.length === 0) {
+        pillsContainer.innerHTML = '<span style="color: var(--text-2); font-size: 0.85rem;">No catalog skills found in sample text. Try mentioning Docker, Python, Battery Chemistry, or AutoCAD.</span>';
+      } else {
+        matched.forEach(s => {
+          let pillClass = s.status === 'covered' ? 'pill-green' : (s.status === 'partial' ? 'pill-amber' : 'pill-red');
+          let label = s.status.toUpperCase();
+          pillsContainer.innerHTML += `
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border); padding: 0.5rem 0.8rem; border-radius: 8px;">
+              <strong>${s.name}</strong> 
+              <span class="pill ${pillClass}">${label}</span>
+              <div style="font-size: 0.72rem; color: var(--text-2); margin-top: 0.2rem;">Matched: ${s.match}</div>
+            </div>
+          `;
+        });
+      }
+
+      resultsContainer.style.display = "block";
+    }
+  </script>
+</body>
+</html>

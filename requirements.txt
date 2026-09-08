@@ -5,3 +5,6 @@ scikit-learn
 python-dotenv
 rapidfuzz
 requests
+openpyxl
+matplotlib
+google-genai

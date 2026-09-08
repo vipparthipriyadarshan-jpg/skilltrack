@@ -12,5 +12,36 @@
     "gap_status": "partial",
     "user_response": "Disagree",
     "timestamp": "2026-08-29 20:06:20"
+  },
+  {
+    "skill": "Python",
+    "course": "Certificate in Python and Web Basics",
+    "gap_status": "covered",
+    "user_response": "Agree",
+    "timestamp": "2026-08-30 14:38:57"
+  },
+  {
+    "skill": "Docker",
+    "course": "Certificate in Python and Web Basics",
+    "gap_status": "partial",
+    "user_response": "Agree",
+    "timestamp": "2026-09-04 08:29:16"
+  },
+  {
+    "skill": "Kubernetes",
+    "course": "Advanced Diploma in Cloud & DevOps",
+    "gap_status": "missing",
+    "user_response": "Disagree",
+    "timestamp": "2026-09-04 08:29:16"
+  },
+  {
+    "skill": "Battery Testing",
+    "course": "Electric Vehicle Maintenance",
+    "gap_status": "partial",
+    "user_response": "Agree",
+    "match_score": 68.8,
+    "recommendation": "Add specialized battery testing module",
+    "ai_provider": "Local NLP",
+    "timestamp": "2026-09-08 19:34:50"
   }
 ]
