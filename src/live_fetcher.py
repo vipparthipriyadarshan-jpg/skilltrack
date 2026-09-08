@@ -17,6 +17,22 @@ except Exception:
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
+
+def get_config_val(key: str, default: str = "") -> str:
+    """
+    Safely retrieves configuration values, prioritizing Streamlit Secrets (for Cloud deployment)
+    and falling back to environment variables / .env.
+    """
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and key in st.secrets:
+            val = str(st.secrets[key]).strip()
+            if val:
+                return val
+    except Exception:
+        pass
+    return os.getenv(key, default).strip()
+
 SECTOR_SEARCH_CONFIG = {
     "IT": {
         "primary": "Software Developer Python",
@@ -65,14 +81,14 @@ def fetch_live_jobs_adzuna(
         (DataFrame of new jobs, None) if successful.
         (None, error_message) if API fails or credentials are not configured.
     """
-    app_id = os.getenv("ADZUNA_APP_ID")
-    app_key = os.getenv("ADZUNA_APP_KEY")
+    app_id = get_config_val("ADZUNA_APP_ID")
+    app_key = get_config_val("ADZUNA_APP_KEY")
 
     if not app_id or not app_key:
         return (
             None,
             "Adzuna API credentials not configured. Please set 'ADZUNA_APP_ID' and "
-            "'ADZUNA_APP_KEY' in your .env file to connect to live Adzuna feeds.",
+            "'ADZUNA_APP_KEY' in your Streamlit secrets or .env file to connect to live Adzuna feeds.",
         )
 
     config = SECTOR_SEARCH_CONFIG.get(sector, SECTOR_SEARCH_CONFIG["IT"])

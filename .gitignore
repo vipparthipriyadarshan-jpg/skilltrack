@@ -11,10 +11,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Environment Variables
+# Environment Variables & Secrets
 .env
 .env.*
 !.env.example
+.streamlit/secrets.toml
+secrets.toml
 
 # Large files (>5MB) & Model Artifacts
 *.zip

@@ -72,8 +72,58 @@ def render_clean_html(html_str: str) -> None:
     st.markdown("\n".join(clean_lines), unsafe_allow_html=True)
 
 
+def safe_export_to_excel(
+    sheets: dict,
+    fallback_sheet_name: str = "Report",
+    fallback_message: str = "No data available for the currently selected filters.",
+) -> bytes:
+    """
+    Guarantees a 100% crash-proof multi-sheet Excel export using openpyxl.
+    Never raises 'IndexError: At least one sheet must be visible' even if all
+    dataframes are empty, None, or filtered out.
+    """
+    buf = io.BytesIO()
+    try:
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            written_count = 0
+            for sheet_name, df in sheets.items():
+                if isinstance(df, pd.DataFrame) and not df.empty:
+                    # Excel worksheet name limit is 31 characters, strip illegal characters
+                    clean_title = (
+                        str(sheet_name)[:31]
+                        .replace(":", "_")
+                        .replace("/", "_")
+                        .replace("\\", "_")
+                        .replace("?", "_")
+                        .replace("*", "_")
+                        .replace("[", "_")
+                        .replace("]", "_")
+                    )
+                    df.to_excel(writer, sheet_name=clean_title, index=False)
+                    written_count += 1
+            if written_count == 0:
+                clean_fb_title = str(fallback_sheet_name)[:31]
+                pd.DataFrame([
+                    {"Status": "All Clear / No Records", "Message": fallback_message}
+                ]).to_excel(writer, sheet_name=clean_fb_title, index=False)
+        buf.seek(0)
+        return buf.getvalue()
+    except Exception:
+        # Fail-safe directly via openpyxl if writer context fails
+        try:
+            import openpyxl
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = str(fallback_sheet_name)[:31]
+            ws.append(["Status", "Message"])
+            ws.append(["All Clear / No Records", fallback_message])
+            fb_buf = io.BytesIO()
+            wb.save(fb_buf)
+            fb_buf.seek(0)
+            return fb_buf.getvalue()
+        except Exception:
+            return b""
 
-# ─── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="SkillTrack AI — Skill-Industry Alignment Dashboard",
     page_icon="🎯",
@@ -1084,44 +1134,44 @@ with tab1:
     with dl_col1:
         st.download_button("📥 Download Gap Report (CSV)", disp_gap.to_csv(index=False).encode(), "skill_gap_report.csv", "text/csv")
     with dl_col2:
-        # Build Excel workbook with multiple sheets
-        _excel_buf = io.BytesIO()
-        with pd.ExcelWriter(_excel_buf, engine="openpyxl") as _writer:
-            # Sheet 1: Gap Analysis
-            _gap_export = disp_gap.copy()
-            _gap_export.to_excel(_writer, sheet_name="Gap Analysis", index=False)
-            # Sheet 2: Course Health (computed inline)
-            _demanded_lower_set = set(f_demand["skill"].str.lower().tolist())
-            _ch_records = []
-            for _, _cr in curr_df.iterrows():
-                _taught = [s.strip() for s in str(_cr.get("skills_taught","")).split(",") if s.strip()]
-                _total = len(_taught)
-                _cov = [s for s in _taught if s.lower() in _demanded_lower_set]
-                _pct = round(len(_cov)/_total*100,1) if _total else 0
-                _health = ("Aligned" if _pct>=70 else ("Needs Update" if _pct>=40 else "Obsolete"))
-                _ch_records.append({"Course ID":_cr["course_id"],"Course Name":_cr["course_name"],"Sector":_cr.get("sector",""),"Coverage %":_pct,"Health Status":_health})
-            pd.DataFrame(_ch_records).to_excel(_writer, sheet_name="Course Health", index=False)
-            # Sheet 3: Trainer Roadmap
-            f_trainer.to_excel(_writer, sheet_name="Trainer Roadmap", index=False)
-            # Sheet 4: Summary KPIs
-            _summary = pd.DataFrame([{
-                "Metric": "Jobs Analyzed", "Value": len(jobs_df)},
-                {"Metric": "Skills Tracked", "Value": len(f_gap)},
-                {"Metric": "Covered Skills", "Value": n_cov},
-                {"Metric": "Partial Skills", "Value": n_par},
-                {"Metric": "Missing Skills", "Value": n_mis},
-                {"Metric": "Alignment Rate %", "Value": align_pct},
-                {"Metric": "Trainer Interventions", "Value": len(f_trainer)},
-                {"Metric": "Sectors Analyzed", "Value": len(sel_sectors)},
-                {"Metric": "Districts Analyzed", "Value": len(sel_districts)},
-                {"Metric": "State Scope", "Value": "Maharashtra, India"},
-                {"Metric": "Report Generated", "Value": datetime.now().strftime("%Y-%m-%d %H:%M")},
-            ])
-            _summary.to_excel(_writer, sheet_name="Summary", index=False)
-        _excel_buf.seek(0)
+        # Build Excel workbook with multiple sheets safely
+        _demanded_lower_set = set(f_demand["skill"].str.lower().tolist()) if not f_demand.empty else set()
+        _ch_records = []
+        for _, _cr in curr_df.iterrows():
+            _taught = [s.strip() for s in str(_cr.get("skills_taught","")).split(",") if s.strip()]
+            _total = len(_taught)
+            _cov = [s for s in _taught if s.lower() in _demanded_lower_set]
+            _pct = round(len(_cov)/_total*100,1) if _total else 0
+            _health = ("Aligned" if _pct>=70 else ("Needs Update" if _pct>=40 else "Obsolete"))
+            _ch_records.append({"Course ID":_cr["course_id"],"Course Name":_cr["course_name"],"Sector":_cr.get("sector",""),"Coverage %":_pct,"Health Status":_health})
+
+        _summary = pd.DataFrame([{
+            "Metric": "Jobs Analyzed", "Value": len(jobs_df)},
+            {"Metric": "Skills Tracked", "Value": len(f_gap)},
+            {"Metric": "Covered Skills", "Value": n_cov},
+            {"Metric": "Partial Skills", "Value": n_par},
+            {"Metric": "Missing Skills", "Value": n_mis},
+            {"Metric": "Alignment Rate %", "Value": align_pct},
+            {"Metric": "Trainer Interventions", "Value": len(f_trainer)},
+            {"Metric": "Sectors Analyzed", "Value": len(sel_sectors)},
+            {"Metric": "Districts Analyzed", "Value": len(sel_districts)},
+            {"Metric": "State Scope", "Value": "Maharashtra, India"},
+            {"Metric": "Report Generated", "Value": datetime.now().strftime("%Y-%m-%d %H:%M")},
+        ])
+
+        _full_excel_bytes = safe_export_to_excel(
+            sheets={
+                "Gap Analysis": disp_gap,
+                "Course Health": pd.DataFrame(_ch_records),
+                "Trainer Roadmap": f_trainer,
+                "Summary": _summary,
+            },
+            fallback_sheet_name="Summary",
+            fallback_message="SkillTrack AI Full Report generated successfully.",
+        )
         st.download_button(
             "📊 Export Full Report (.xlsx)",
-            _excel_buf.getvalue(),
+            _full_excel_bytes,
             "skilltrack_full_report.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
@@ -1218,13 +1268,14 @@ with tab2:
     with ch_c1:
         st.download_button("📥 Download Course Health (CSV)", ch_df.to_csv(index=False).encode(), "course_health_audit.csv", "text/csv")
     with ch_c2:
-        _ch_buf = io.BytesIO()
-        with pd.ExcelWriter(_ch_buf, engine="openpyxl") as _ch_writer:
-            ch_df.to_excel(_ch_writer, sheet_name="Course Health", index=False)
-        _ch_buf.seek(0)
+        _ch_excel_bytes = safe_export_to_excel(
+            sheets={"Course Health": ch_df},
+            fallback_sheet_name="Course Health",
+            fallback_message="No course health records available for the selected filters.",
+        )
         st.download_button(
             "📊 Export Course Health (.xlsx)",
-            _ch_buf.getvalue(),
+            _ch_excel_bytes,
             "course_health_audit.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
@@ -1302,13 +1353,14 @@ with tab3:
         with tr_c1:
             st.download_button("📥 Export Trainer Roadmap (CSV)", f_trainer.to_csv(index=False).encode(), "trainer_roadmap.csv", "text/csv")
         with tr_c2:
-            _tr_buf = io.BytesIO()
-            with pd.ExcelWriter(_tr_buf, engine="openpyxl") as _tr_writer:
-                f_trainer.to_excel(_tr_writer, sheet_name="Trainer Roadmap", index=False)
-            _tr_buf.seek(0)
+            _tr_excel_bytes = safe_export_to_excel(
+                sheets={"Trainer Roadmap": f_trainer},
+                fallback_sheet_name="Trainer Roadmap",
+                fallback_message="No trainer upskilling interventions required for the selected filters.",
+            )
             st.download_button(
                 "📊 Export Trainer Roadmap (.xlsx)",
-                _tr_buf.getvalue(),
+                _tr_excel_bytes,
                 "trainer_roadmap.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
@@ -1503,17 +1555,18 @@ with tab5:
             </div>
             """)
 
-    # Excel export for Quick Wins
-    _qw_buf = io.BytesIO()
-    with pd.ExcelWriter(_qw_buf, engine="openpyxl") as _qw_writer:
-        if not partial_gaps.empty:
-            partial_gaps.to_excel(_qw_writer, sheet_name="Quick Wins (Partial)", index=False)
-        if not missing_gaps.empty:
-            missing_gaps.to_excel(_qw_writer, sheet_name="Critical Gaps (Missing)", index=False)
-    _qw_buf.seek(0)
+    # Excel export for Quick Wins safely
+    _qw_excel_bytes = safe_export_to_excel(
+        sheets={
+            "Quick Wins (Partial)": partial_gaps,
+            "Critical Gaps (Missing)": missing_gaps,
+        },
+        fallback_sheet_name="Quick Wins",
+        fallback_message="No partial or missing skill gaps detected for the currently selected filters.",
+    )
     st.download_button(
         "📥 Export Quick Wins Action Plan (.xlsx)",
-        _qw_buf.getvalue(),
+        _qw_excel_bytes,
         "quick_wins_action_plan.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )

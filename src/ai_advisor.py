@@ -21,8 +21,24 @@ except Exception:
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-from src.skill_extractor import extract_skills as local_extract_skills
+from src.skill_extractor import extract_skills as local_extract_skills, get_nlp
 from src.gap_detector import detect_gaps, compute_skill_similarity
+
+
+def get_config_val(key: str, default: str = "") -> str:
+    """
+    Safely retrieves configuration values, prioritizing Streamlit Secrets (for Cloud deployment)
+    and falling back to environment variables / .env.
+    """
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and key in st.secrets:
+            val = str(st.secrets[key]).strip()
+            if val:
+                return val
+    except Exception:
+        pass
+    return os.getenv(key, default).strip()
 
 # ─── Domain Acronym & Normalization Map ──────────────────────────────────────
 ACRONYM_NORMALIZATION_MAP = {
@@ -72,11 +88,11 @@ def get_active_provider_config() -> Tuple[str, str, str]:
     """
     Returns (provider_type, model_name, api_key) according to .env configuration.
     """
-    provider = os.getenv("AI_PROVIDER", "gemini").strip().lower()
-    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-    gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
-    openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
-    openrouter_model = os.getenv("OPENROUTER_MODEL", "openrouter/free").strip()
+    provider = get_config_val("AI_PROVIDER", "gemini").lower()
+    gemini_key = get_config_val("GEMINI_API_KEY", "")
+    gemini_model = get_config_val("GEMINI_MODEL", "gemini-2.5-flash")
+    openrouter_key = get_config_val("OPENROUTER_API_KEY", "")
+    openrouter_model = get_config_val("OPENROUTER_MODEL", "openrouter/free")
 
     if provider == "gemini" and gemini_key:
         return "gemini", gemini_model, gemini_key
@@ -273,8 +289,8 @@ Rules:
                 return parsed.get("skills", []), provider_used, status_badge
 
     # 2. Try OpenRouter Fallback
-    openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
-    openrouter_model = os.getenv("OPENROUTER_MODEL", "openrouter/free").strip()
+    openrouter_key = get_config_val("OPENROUTER_API_KEY", "")
+    openrouter_model = get_config_val("OPENROUTER_MODEL", "openrouter/free")
     if openrouter_key:
         raw_response = _call_openrouter_api(prompt, openrouter_model, openrouter_key)
         if raw_response:
@@ -290,9 +306,9 @@ Rules:
 
     # Extract technical compound noun chunks from spaCy if available
     try:
-        import spacy
-        nlp = spacy.load("en_core_web_sm")
-        doc = nlp(text)
+        nlp = get_nlp()
+        if nlp is not None:
+            doc = nlp(text)
         stopwords = {
             "technician", "engineer", "specialist", "associate", "worker", "experience",
             "skills", "required", "years", "manager", "lead", "director", "expert",
@@ -360,8 +376,8 @@ def generate_ai_executive_summary(
     # If Gemini or OpenRouter is available, request grounded synthesis
     if "Gemini" in provider_name or "OpenRouter" in provider_name:
         try:
-            gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-            gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+            gemini_key = get_config_val("GEMINI_API_KEY", "")
+            gemini_model = get_config_val("GEMINI_MODEL", "gemini-2.5-flash")
 
             facts_context = f"""
 FACTS FROM SKILLTRACK ANALYTICAL ENGINE:
@@ -608,60 +624,76 @@ def export_analysis_to_excel(analysis: Dict[str, Any]) -> bytes:
     4. Faculty Development Roadmap & Quick Wins
     """
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        # Sheet 1: Executive Overview
-        overview_data = [
-            {"Metric": "AI Intelligence Provider", "Value": analysis.get("provider_name", "SkillTrack AI")},
-            {"Metric": "Input Classification", "Value": analysis.get("input_type", "General")},
-            {"Metric": "Analysis Timestamp", "Value": analysis.get("timestamp", "")},
-            {"Metric": "Total Skills Detected", "Value": analysis.get("skills_detected", 0)},
-            {"Metric": "Covered Skills (≥80%)", "Value": analysis.get("covered_count", 0)},
-            {"Metric": "Partial Gaps (50–80%)", "Value": analysis.get("partial_count", 0)},
-            {"Metric": "Missing Gaps (<50%)", "Value": analysis.get("missing_count", 0)},
-            {"Metric": "Overall Curriculum Alignment Rate", "Value": f"{analysis.get('alignment_pct', 0)}%"},
-            {"Metric": "Executive Summary", "Value": analysis.get("executive_summary", "")},
-        ]
-        pd.DataFrame(overview_data).to_excel(writer, sheet_name="Executive Summary", index=False)
-
-        # Sheet 2: Skill Alignment Table
-        align_df = analysis.get("alignment_df")
-        if isinstance(align_df, pd.DataFrame) and not align_df.empty:
-            export_cols = ["Skill", "Category", "Match Score", "Status", "Best Matching Course", "Priority", "Evidence"]
-            clean_align = align_df[[c for c in export_cols if c in align_df.columns]]
-            clean_align.to_excel(writer, sheet_name="Skill Alignment Matrix", index=False)
-
-        # Sheet 3: Critical Gaps
-        gaps = analysis.get("critical_gaps", [])
-        if gaps:
-            gaps_records = [
-                {
-                    "Skill": g["skill"],
-                    "Status": g["status"].capitalize(),
-                    "Match Confidence": f"{g['score']:.1f}%",
-                    "Best Matching Course": g["course"],
-                    "Why It Matters": g["why_it_matters"],
-                    "Recommended Action": g["recommended_action"],
-                    "Sector Skill Council": g["ssc"],
-                }
-                for g in gaps
+    try:
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            # Sheet 1: Executive Overview (always present and visible)
+            overview_data = [
+                {"Metric": "AI Intelligence Provider", "Value": analysis.get("provider_name", "SkillTrack AI")},
+                {"Metric": "Input Classification", "Value": analysis.get("input_type", "General")},
+                {"Metric": "Analysis Timestamp", "Value": analysis.get("timestamp", "")},
+                {"Metric": "Total Skills Detected", "Value": analysis.get("skills_detected", 0)},
+                {"Metric": "Covered Skills (≥80%)", "Value": analysis.get("covered_count", 0)},
+                {"Metric": "Partial Gaps (50–80%)", "Value": analysis.get("partial_count", 0)},
+                {"Metric": "Missing Gaps (<50%)", "Value": analysis.get("missing_count", 0)},
+                {"Metric": "Overall Curriculum Alignment Rate", "Value": f"{analysis.get('alignment_pct', 0)}%"},
+                {"Metric": "Executive Summary", "Value": analysis.get("executive_summary", "")},
             ]
-            pd.DataFrame(gaps_records).to_excel(writer, sheet_name="Critical Skill Gaps", index=False)
+            pd.DataFrame(overview_data).to_excel(writer, sheet_name="Executive Summary", index=False)
 
-        # Sheet 4: Faculty Roadmap & Quick Wins
-        roadmap = analysis.get("trainer_roadmap", [])
-        if roadmap:
-            roadmap_df = pd.DataFrame(roadmap)
-            roadmap_df.columns = ["Priority", "Competency", "Recommended Training", "Curriculum Justification", "Sector Skill Council"]
-            roadmap_df.to_excel(writer, sheet_name="Faculty Roadmap", index=False)
+            # Sheet 2: Skill Alignment Table
+            align_df = analysis.get("alignment_df")
+            if isinstance(align_df, pd.DataFrame) and not align_df.empty:
+                export_cols = ["Skill", "Category", "Match Score", "Status", "Best Matching Course", "Priority", "Evidence"]
+                clean_align = align_df[[c for c in export_cols if c in align_df.columns]]
+                clean_align.to_excel(writer, sheet_name="Skill Alignment Matrix", index=False)
 
-        q_wins = analysis.get("quick_wins", [])
-        if q_wins:
-            q_df = pd.DataFrame(q_wins)
-            q_df.columns = ["Skill", "Current Match", "Target Course", "Intervention Plan", "Expected Impact", "Estimated Effort"]
-            q_df.to_excel(writer, sheet_name="Quick Wins", index=False)
+            # Sheet 3: Critical Gaps
+            gaps = analysis.get("critical_gaps", [])
+            if gaps:
+                gaps_records = [
+                    {
+                        "Skill": g["skill"],
+                        "Status": g["status"].capitalize(),
+                        "Match Confidence": f"{g['score']:.1f}%",
+                        "Best Matching Course": g["course"],
+                        "Why It Matters": g["why_it_matters"],
+                        "Recommended Action": g["recommended_action"],
+                        "Sector Skill Council": g["ssc"],
+                    }
+                    for g in gaps
+                ]
+                pd.DataFrame(gaps_records).to_excel(writer, sheet_name="Critical Skill Gaps", index=False)
 
-    output.seek(0)
-    return output.getvalue()
+            # Sheet 4: Faculty Roadmap & Quick Wins
+            roadmap = analysis.get("trainer_roadmap", [])
+            if roadmap:
+                roadmap_df = pd.DataFrame(roadmap)
+                roadmap_df.columns = ["Priority", "Competency", "Recommended Training", "Curriculum Justification", "Sector Skill Council"]
+                roadmap_df.to_excel(writer, sheet_name="Faculty Roadmap", index=False)
+
+            q_wins = analysis.get("quick_wins", [])
+            if q_wins:
+                q_df = pd.DataFrame(q_wins)
+                q_df.columns = ["Skill", "Current Match", "Target Course", "Intervention Plan", "Expected Impact", "Estimated Effort"]
+                q_df.to_excel(writer, sheet_name="Quick Wins", index=False)
+
+        output.seek(0)
+        return output.getvalue()
+    except Exception:
+        try:
+            import openpyxl
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Executive Summary"
+            ws.append(["Metric", "Value"])
+            ws.append(["AI Intelligence Provider", analysis.get("provider_name", "SkillTrack AI")])
+            ws.append(["Alignment Rate", f"{analysis.get('alignment_pct', 0)}%"])
+            fb = io.BytesIO()
+            wb.save(fb)
+            fb.seek(0)
+            return fb.getvalue()
+        except Exception:
+            return b""
 
 
 def export_analysis_to_csv(analysis: Dict[str, Any]) -> bytes:

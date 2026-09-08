@@ -202,7 +202,8 @@ _NLP = None
 
 def get_nlp():
     """
-    Lazy loader for spaCy English pipeline with multi-tier error resilience.
+    Lazy loader for spaCy English pipeline with safe error resilience.
+    Uses pre-installed 'en_core_web_sm' from requirements.txt without runtime downloads.
     """
     global _NLP, SPACY_AVAILABLE, spacy
     if not SPACY_AVAILABLE or spacy is None:
@@ -210,14 +211,9 @@ def get_nlp():
     if _NLP is None:
         try:
             _NLP = spacy.load("en_core_web_sm")
-        except (OSError, KeyError, Exception):
-            try:
-                import spacy.cli
-                spacy.cli.download("en_core_web_sm")
-                _NLP = spacy.load("en_core_web_sm")
-            except (KeyError, Exception):
-                _NLP = None
-                SPACY_AVAILABLE = False
+        except Exception:
+            _NLP = None
+            SPACY_AVAILABLE = False
     return _NLP
 
 

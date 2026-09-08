@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 import json
 import io
@@ -9,6 +9,12 @@ import openpyxl
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 from src.load_data import load_all_data
 from src.ai_advisor import (

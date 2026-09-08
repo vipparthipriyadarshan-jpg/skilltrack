@@ -45,8 +45,13 @@ def compute_skill_similarity(skill: str, candidate: str) -> float:
     w2 = set(s2.split())
 
     # If phrases share actual words in common
-    if w1.intersection(w2):
-        return float(fuzz.token_set_ratio(s1, s2))
+    common_words = w1.intersection(w2)
+    if common_words:
+        word_overlap = len(common_words) / max(len(w1), len(w2))
+        if word_overlap >= 0.5:
+            return float(fuzz.token_set_ratio(s1, s2))
+        else:
+            return float(fuzz.token_sort_ratio(s1, s2))
 
     # Single-word comparison (e.g. slight typos or spelling variations)
     if len(w1) == 1 and len(w2) == 1:
@@ -57,8 +62,8 @@ def compute_skill_similarity(skill: str, candidate: str) -> float:
     if p_score >= 85.0:
         return p_score
 
-    # Full string ratio for unrelated multi-word phrases
-    return float(fuzz.ratio(s1, s2))
+    # Unrelated multi-word phrases with zero common words are capped below the 50% partial gap threshold
+    return min(float(fuzz.ratio(s1, s2)), 45.0)
 
 
 def detect_gaps(
